@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tic Tac Toe</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #fff;
+  }
+  body {
+    --accent: hsl(262, 83%, 58%);
+    --bg1: #1e1b4b;
+    --bg2: #4c1d95;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    transition: background 0.6s ease;
+  }
+  #bgCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    display: block;
+  }
+  .page {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 40%, rgba(20, 16, 46, 0.35), rgba(10, 8, 26, 0.75));
+    opacity: 0;
+    transform: scale(0.96);
+    transition: opacity 0.25s ease, transform 0.25s ease, background 0.6s ease;
+    z-index: 1;
+  }
+  .page.active {
+    display: flex;
+    opacity: 1;
+    transform: scale(1);
+  }
+  .card {
+    text-align: center;
+    background: rgba(20, 16, 40, 0.55);
+    padding: 32px 28px;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+    backdrop-filter: blur(10px);
+    min-width: 300px;
+    position: relative;
+    z-index: 2;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: 1px; }
+  h2 { margin: 0 0 6px; font-size: 24px; }
+  p.sub { color: #d1c4ff; font-size: 14px; margin: 0 0 24px; }
+  #status { margin: 8px 0 6px; font-size: 16px; min-height: 22px; color: #d1c4ff; }
+  #matchInfo { margin: 0 0 16px; font-size: 13px; color: #a78bfa; }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 90px);
+    grid-template-rows: repeat(3, 90px);
+    gap: 8px;
+    margin: 0 auto;
+  }
+  .cell {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    border-radius: 12px;
+    font-size: 40px;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.05s, transform 0.05s;
+  }
+  .cell:hover:not(:disabled) { background: rgba(255,255,255,0.2); transform: scale(1.03); }
+  .cell:disabled { cursor: default; }
+  .cell.x { color: #7dd3fc; }
+  .cell.o { color: #fca5a5; }
+  .cell.win {
+    background: rgba(74, 222, 128, 0.35);
+    animation: pulse 0.4s ease-in-out 2;
+  }
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  .celebrate { margin-top: 14px; font-size: 16px; font-weight: bold; min-height: 22px; color: #4ade80; }
+  .score { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; font-size: 14px; color: #d1c4ff; }
+
+  button.action {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  button.action:hover { filter: brightness(1.12); }
+  button.action.secondary { background: rgba(255,255,255,0.12); }
+  button.action.secondary:hover { background: rgba(255,255,255,0.2); }
+  button.action:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+
+  .controls { margin-top: 22px; display: flex; gap: 10px; justify-content: center; }
+
+  .modeGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  .modeBtn {
+    background: rgba(255,255,255,0.08);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 16px 10px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .modeBtn:hover { background: rgba(255,255,255,0.16); }
+  .modeBtn.selected { border-color: var(--accent); background: rgba(124,58,237,0.35); }
+  .customRow { display: none; align-items: center; justify-content: center; gap: 8px; margin-bottom: 18px; }
+  .customRow.show { display: flex; }
+  .customRow input { width: 70px; padding: 8px 10px; border-radius: 8px; border: none; font-size: 14px; text-align: center; }
+
+  .trophy { font-size: 64px; }
+  .resultLines { margin: 4px 0 22px; text-align: center; display: block; }
+  .resultLine {
+    font-size: 15px; color: #e5e0ff; padding: 6px 0; text-align: center;
+    opacity: 0; transform: translateY(6px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .resultLine:last-child { border-bottom: none; }
+  .resultLine.show { opacity: 1; transform: translateY(0); }
+  .resultLine b { color: #fff; }
+
+  .pauseOverlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 8, 30, 0.75);
+    border-radius: 20px;
+    z-index: 20;
+  }
+  .pauseOverlay.show { display: flex; }
+  .pauseCard { text-align: center; background: rgba(255,255,255,0.08); padding: 28px 26px; border-radius: 16px; min-width: 220px; }
+  .pauseCard h2 { margin: 0 0 6px; }
+  .pauseCard .action { margin: 6px 4px 0; }
+
+  .loadRow { display: none; margin-bottom: 16px; }
+  .loadRow.show { display: block; }
+  .loadRow p { font-size: 13px; color: #a78bfa; margin: 0 0 8px; }
+
+  /* Account / login */
+  .accountBar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,255,255,0.06); border-radius: 10px; padding: 8px 12px;
+    margin-bottom: 18px; font-size: 13px;
+  }
+  .accountBar .who { display: flex; align-items: center; gap: 8px; color: #e5e0ff; }
+  .swatch { width: 16px; height: 16px; border-radius: 50%; display: inline-block; border: 2px solid rgba(255,255,255,0.5); }
+  .accountBar button { background: none; border: none; color: #c4b5fd; font-size: 12px; cursor: pointer; text-decoration: underline; }
+  .loginRow { display: flex; gap: 8px; margin-bottom: 18px; }
+  .loginRow select {
+    flex: 0 0 100px;
+    padding: 10px 6px;
+    border-radius: 8px;
+    border: none;
+    font-size: 13px;
+    background: #fff;
+    color: #1e1b4b;
+  }
+  .loginRow input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: none; font-size: 14px; }
+  .loginMsg { font-size: 12px; color: #fca5a5; min-height: 16px; margin: -10px 0 12px; }
+  .loginMsg.ok { color: #86efac; }
+
+  /* Settings gear */
+  .gearBtn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: #fff;
+    font-size: 17px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.2s;
+  }
+  .gearBtn:hover { background: rgba(255,255,255,0.2); }
+  .gearBtn.open { transform: rotate(35deg); }
+
+  .settingsPanel {
+    position: absolute;
+    top: 54px;
+    right: 14px;
+    background: rgba(30, 24, 60, 0.97);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 10px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 160px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    z-index: 15;
+  }
+  .settingsPanel.show { display: flex; }
+  .settingsPanel button {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: #fff;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  .settingsPanel button:hover { background: rgba(255,255,255,0.18); }
+  .settingsPanel .toast {
+    font-size: 11px;
+    color: #86efac;
+    min-height: 14px;
+    padding: 0 4px;
+  }
+
+  .backLink {
+    display: inline-block;
+    margin-bottom: 14px;
+    font-size: 12px;
+    color: #a78bfa;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+
+  <!-- PAGE 1: LOGIN -->
+  <div class="page active" id="loginPage">
+    <div class="card">
+      <h1>Welcome to Tic Tac Toe!</h1>
+      <p class="sub">Log in with your mobile number to get your own colour</p>
+
+      <div class="accountBar" id="accountBar" style="display:none;">
+        <span class="who"><span class="swatch" id="accountSwatch"></span><span id="accountLabel"></span></span>
+        <button id="logoutBtn">Log out</button>
+      </div>
+
+      <div id="loginBlock">
+        <div class="loginRow">
+          <select id="countrySelect"></select>
+          <input type="tel" id="mobileInput" placeholder="Mobile number" maxlength="15">
+          <button class="action" id="loginBtn">Login / Sign Up</button>
+        </div>
+        <div class="loginMsg" id="loginMsg"></div>
+      </div>
+
+      <button class="action" id="continueBtn" style="display:none;">Continue</button>
+    </div>
+  </div>
+
+  <!-- PAGE 2: ROUND OPTIONS -->
+  <div class="page" id="roundsPage">
+    <div class="card">
+      <span class="backLink" id="backToLoginBtn">&larr; Switch account</span>
+      <h1>Choose Your Rounds</h1>
+      <p class="sub">How many rounds do you want to play?</p>
+
+      <div class="loadRow" id="loadRow">
+        <p>You have a saved game in progress.</p>
+        <button class="action secondary" id="loadBtn">Resume Saved Game</button>
+      </div>
+
+      <div class="modeGrid">
+        <button class="modeBtn selected" data-mode="1">1 Round</button>
+        <button class="modeBtn" data-mode="3">Best of 3</button>
+        <button class="modeBtn" data-mode="5">Best of 5</button>
+        <button class="modeBtn" data-mode="custom">Custom</button>
+      </div>
+      <div class="customRow" id="customRow">
+        <span>Rounds:</span>
+        <input type="number" id="customInput" min="1" max="99" value="7">
+      </div>
+      <button class="action" id="startBtn">Start Game</button>
+    </div>
+  </div>
+
+  <!-- PAGE 3: GAME -->
+  <div class="page" id="gamePage">
+    <div class="card">
+      <button class="gearBtn" id="gearBtn" title="Settings">&#9881;</button>
+      <div class="settingsPanel" id="settingsPanel">
+        <button id="pauseBtn">⏸ Pause</button>
+        <button id="saveBtn">💾 Save Game</button>
+        <button id="restartBtn">🔄 Restart</button>
+        <button id="exitBtn">🚪 Exit</button>
+        <div class="toast" id="settingsToast"></div>
+      </div>
+
+      <h1>Tic Tac Toe</h1>
+      <div id="matchInfo">Round 1 of 1</div>
+      <div id="status">Player X's turn</div>
+      <div class="board" id="board"></div>
+      <div class="celebrate" id="celebrate"></div>
+      <div class="score">
+        <span id="scoreX">X: 0</span>
+        <span id="scoreDraw">Draws: 0</span>
+        <span id="scoreO">O: 0</span>
+      </div>
+    </div>
+
+    <div class="pauseOverlay" id="pauseOverlay">
+      <div class="pauseCard">
+        <h2>Paused</h2>
+        <p class="sub" id="saveMsg">Game paused</p>
+        <button class="action" id="resumeBtn">Resume</button>
+        <button class="action secondary" id="pauseExitBtn">Exit to Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 4: CONGRATS -->
+  <div class="page" id="congratsPage">
+    <div class="card">
+      <div class="trophy" id="trophy">🏆</div>
+      <h2 id="overlayTitle">Congratulations!</h2>
+      <p class="sub" id="overlayCheer"></p>
+      <div class="resultLines" id="resultLines"></div>
+      <button class="action" id="playAgainBtn">Play Again</button>
+      <button class="action secondary" id="newMatchBtn">New Game</button>
+    </div>
+  </div>
+
+<script>
+  // Fallback storage for running outside Claude.ai (e.g. Live Server, plain browser).
+  // Uses window.storage when available (Claude artifact environment),
+  // otherwise polyfills the same API using localStorage.
+  if (!window.storage) {
+    window.storage = {
+      _k(key, shared) { return 'ttt_' + (shared ? 'shared_' : 'personal_') + key; },
+      async get(key, shared = false) {
+        const raw = localStorage.getItem(this._k(key, shared));
+        if (raw === null) return null;
+        return { key, value: raw, shared };
+      },
+      async set(key, value, shared = false) {
+        localStorage.setItem(this._k(key, shared), value);
+        return { key, value, shared };
+      },
+      async delete(key, shared = false) {
+        const existed = localStorage.getItem(this._k(key, shared)) !== null;
+        localStorage.removeItem(this._k(key, shared));
+        return { key, deleted: existed, shared };
+      },
+      async list(prefix = '', shared = false) {
+        const p = this._k(prefix, shared);
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k.startsWith(p)) keys.push(k.slice(('ttt_' + (shared ? 'shared_' : 'personal_')).length));
+        }
+        return { keys, prefix, shared };
+      }
+    };
+  }
+</script>
+
+<script>
+  // ---------- 3D animated background (perspective starfield) ----------
+  (function () {
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    let w, h, cx, cy;
+    let particles = [];
+    const COUNT = 180;
+    const MAX_DEPTH = 1000;
+    let angle = 0;
+
+    function resize() {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+      cx = w / 2;
+      cy = h / 2;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function randomParticle() {
+      return {
+        x: (Math.random() - 0.5) * w * 1.6,
+        y: (Math.random() - 0.5) * h * 1.6,
+        z: Math.random() * MAX_DEPTH + 1
+      };
+    }
+    for (let i = 0; i < COUNT; i++) particles.push(randomParticle());
+
+    function getAccentRGB() {
+      const raw = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+      const m = /hsl\(\s*(\d+)/.exec(raw);
+      const hue = m ? parseInt(m[1], 10) : 260;
+      return hue;
+    }
+
+    function frame() {
+      const hue = getAccentRGB();
+      ctx.fillStyle = 'rgba(6, 5, 16, 0.28)';
+      ctx.fillRect(0, 0, w, h);
+
+      angle += 0.0006;
+      const cosA = Math.cos(angle), sinA = Math.sin(angle);
+
+      for (let p of particles) {
+        p.z -= 2.4;
+        if (p.z <= 1) {
+          Object.assign(p, randomParticle());
+          p.z = MAX_DEPTH;
+        }
+
+        // gentle rotation for a swirling 3D feel
+        const rx = p.x * cosA - p.y * sinA;
+        const ry = p.x * sinA + p.y * cosA;
+
+        const scale = 300 / p.z;
+        const sx = cx + rx * scale;
+        const sy = cy + ry * scale;
+        if (sx < -50 || sx > w + 50 || sy < -50 || sy > h + 50) continue;
+
+        const depthRatio = 1 - p.z / MAX_DEPTH;
+        const size = Math.max(0.6, depthRatio * 3.2);
+        const alpha = Math.min(1, depthRatio * 1.1);
+
+        ctx.beginPath();
+        ctx.fillStyle = `hsla(${hue}, 85%, ${55 + depthRatio * 25}%, ${alpha})`;
+        ctx.arc(sx, sy, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
+</script>
+<script>
+  // ---------- Pages ----------
+  const loginPage = document.getElementById('loginPage');
+  const roundsPage = document.getElementById('roundsPage');
+  const gamePage = document.getElementById('gamePage');
+  const congratsPage = document.getElementById('congratsPage');
+
+  function showPage(page) {
+    [loginPage, roundsPage, gamePage, congratsPage].forEach(p => p.classList.remove('active'));
+    page.classList.add('active');
+  }
+
+  // ---------- Account / Login ----------
+  const accountBar = document.getElementById('accountBar');
+  const accountSwatch = document.getElementById('accountSwatch');
+  const accountLabel = document.getElementById('accountLabel');
+  const loginBlock = document.getElementById('loginBlock');
+  const mobileInput = document.getElementById('mobileInput');
+  const countrySelect = document.getElementById('countrySelect');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginMsg = document.getElementById('loginMsg');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const continueBtn = document.getElementById('continueBtn');
+  const backToLoginBtn = document.getElementById('backToLoginBtn');
+
+  const CURRENT_ACCOUNT_KEY = 'ttt-current-account';
+  let currentAccount = null;
+
+  const countries = [
+    { name: 'India', code: 'IN', dial: '+91' },
+    { name: 'United States', code: 'US', dial: '+1' },
+    { name: 'United Kingdom', code: 'GB', dial: '+44' },
+    { name: 'Canada', code: 'CA', dial: '+1' },
+    { name: 'Australia', code: 'AU', dial: '+61' },
+    { name: 'Germany', code: 'DE', dial: '+49' },
+    { name: 'France', code: 'FR', dial: '+33' },
+    { name: 'Singapore', code: 'SG', dial: '+65' },
+    { name: 'UAE', code: 'AE', dial: '+971' },
+    { name: 'Pakistan', code: 'PK', dial: '+92' },
+    { name: 'Bangladesh', code: 'BD', dial: '+880' },
+    { name: 'Sri Lanka', code: 'LK', dial: '+94' },
+    { name: 'Nepal', code: 'NP', dial: '+977' },
+    { name: 'China', code: 'CN', dial: '+86' },
+    { name: 'Japan', code: 'JP', dial: '+81' },
+    { name: 'South Korea', code: 'KR', dial: '+82' },
+    { name: 'Brazil', code: 'BR', dial: '+55' },
+    { name: 'South Africa', code: 'ZA', dial: '+27' },
+    { name: 'Nigeria', code: 'NG', dial: '+234' },
+    { name: 'Other', code: 'XX', dial: '+' }
+  ];
+
+  function populateCountrySelect() {
+    countrySelect.innerHTML = countries.map(c =>
+      `<option value="${c.dial}">${c.dial} ${c.code}</option>`
+    ).join('');
+    const inDefault = countries.findIndex(c => c.code === 'IN');
+    countrySelect.selectedIndex = inDefault >= 0 ? inDefault : 0;
+  }
+  populateCountrySelect();
+
+  function hashToHue(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    return hash % 360;
+  }
+  function colorForMobile(mobile) {
+    return `hsl(${hashToHue(mobile)}, 70%, 55%)`;
+  }
+  function applyAccentColor(color) {
+    document.body.style.setProperty('--accent', color);
+    const match = /hsl\((\d+),/.exec(color);
+    const hue = match ? parseInt(match[1], 10) : 260;
+    document.body.style.setProperty('--bg1', `hsl(${hue}, 45%, 14%)`);
+    document.body.style.setProperty('--bg2', `hsl(${(hue + 40) % 360}, 45%, 24%)`);
+  }
+  function isValidMobile(v) {
+    const digits = v.replace(/\D/g, '');
+    return digits.length >= 7 && digits.length <= 15;
+  }
+
+  async function loginWithMobile(fullNumber, displayNumber) {
+    const cleanKey = fullNumber.replace(/\D/g, '');
+    const key = `account:${cleanKey}`;
+    try {
+      let profile;
+      const existing = await window.storage.get(key, false).catch(() => null);
+      if (existing && existing.value) {
+        profile = JSON.parse(existing.value);
+        loginMsg.textContent = 'Welcome back!';
+      } else {
+        profile = { mobile: displayNumber, color: colorForMobile(cleanKey) };
+        await window.storage.set(key, JSON.stringify(profile), false);
+        loginMsg.textContent = 'Account created!';
+      }
+      loginMsg.classList.add('ok');
+      currentAccount = profile;
+      await window.storage.set(CURRENT_ACCOUNT_KEY, JSON.stringify(profile), false);
+      applyAccentColor(profile.color);
+      renderAccountBar();
+    } catch (e) {
+      loginMsg.classList.remove('ok');
+      loginMsg.textContent = 'Could not save your account right now.';
+    }
+  }
+
+  function renderAccountBar() {
+    if (currentAccount) {
+      accountBar.style.display = 'flex';
+      loginBlock.style.display = 'none';
+      accountSwatch.style.background = currentAccount.color;
+      accountLabel.textContent = currentAccount.mobile;
+      continueBtn.style.display = 'inline-block';
+    } else {
+      accountBar.style.display = 'none';
+      loginBlock.style.display = 'block';
+      continueBtn.style.display = 'none';
+    }
+  }
+
+  mobileInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      loginBtn.click();
+    }
+  });
+
+  loginBtn.addEventListener('click', () => {
+    const v = mobileInput.value.trim();
+    const dial = countrySelect.value;
+    loginMsg.classList.remove('ok');
+    if (!isValidMobile(v)) {
+      loginMsg.textContent = 'Enter a valid mobile number.';
+      return;
+    }
+    loginMsg.textContent = 'Signing in...';
+    const fullNumber = dial + v.replace(/\D/g, '');
+    const displayNumber = `${dial} ${v.replace(/\D/g, '')}`;
+    loginWithMobile(fullNumber, displayNumber);
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    currentAccount = null;
+    applyAccentColor('hsl(262, 83%, 58%)');
+    document.body.style.setProperty('--bg1', '#1e1b4b');
+    document.body.style.setProperty('--bg2', '#4c1d95');
+    mobileInput.value = '';
+    loginMsg.textContent = '';
+    try { await window.storage.delete(CURRENT_ACCOUNT_KEY, false); } catch (e) {}
+    renderAccountBar();
+  });
+
+  continueBtn.addEventListener('click', () => {
+    showPage(roundsPage);
+    refreshLoadRow();
+  });
+
+  backToLoginBtn.addEventListener('click', () => {
+    showPage(loginPage);
+  });
+
+  async function restoreAccount() {
+    try {
+      const result = await window.storage.get(CURRENT_ACCOUNT_KEY, false);
+      if (result && result.value) {
+        currentAccount = JSON.parse(result.value);
+        applyAccentColor(currentAccount.color);
+      }
+    } catch (e) {}
+    renderAccountBar();
+  }
+
+  // ---------- Round selection ----------
+  const modeBtns = document.querySelectorAll('.modeBtn');
+  const customRow = document.getElementById('customRow');
+  const customInput = document.getElementById('customInput');
+  const startBtn = document.getElementById('startBtn');
+  const loadRow = document.getElementById('loadRow');
+  const loadBtn = document.getElementById('loadBtn');
+
+  let selectedMode = '1';
+
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedMode = btn.dataset.mode;
+      customRow.classList.toggle('show', selectedMode === 'custom');
+    });
+  });
+
+  // ---------- Game ----------
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const matchInfoEl = document.getElementById('matchInfo');
+  const scoreXEl = document.getElementById('scoreX');
+  const scoreOEl = document.getElementById('scoreO');
+  const scoreDrawEl = document.getElementById('scoreDraw');
+  const celebrateEl = document.getElementById('celebrate');
+  const trophyEl = document.getElementById('trophy');
+  const overlayTitleEl = document.getElementById('overlayTitle');
+  const overlayCheerEl = document.getElementById('overlayCheer');
+  const resultLinesEl = document.getElementById('resultLines');
+  const playAgainBtn = document.getElementById('playAgainBtn');
+  const newMatchBtn = document.getElementById('newMatchBtn');
+
+  const gearBtn = document.getElementById('gearBtn');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const settingsToast = document.getElementById('settingsToast');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const exitBtn = document.getElementById('exitBtn');
+  const pauseOverlay = document.getElementById('pauseOverlay');
+  const saveMsg = document.getElementById('saveMsg');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const pauseExitBtn = document.getElementById('pauseExitBtn');
+
+  const cheers = ['Nicely played!', 'Champion move!', 'That was clutch!', 'Great game!', 'Well played!'];
+  const winPatterns = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+  let cells = Array(9).fill(null);
+  let currentPlayer = 'X';
+  let roundOver = false;
+  let scores = { X: 0, O: 0, Draw: 0 };
+  let matchLength = 1;
+  let winsNeeded = 1;
+  let roundNumber = 1;
+  let paused = false;
+
+  const SAVE_KEY = 'ttt-save-state';
+
+  startBtn.addEventListener('click', () => {
+    if (selectedMode === 'custom') {
+      const n = parseInt(customInput.value, 10);
+      matchLength = (n && n > 0) ? n : 1;
+    } else {
+      matchLength = parseInt(selectedMode, 10);
+    }
+    winsNeeded = Math.ceil(matchLength / 2);
+    startMatch();
+  });
+
+  function startMatch() {
+    scores = { X: 0, O: 0, Draw: 0 };
+    roundNumber = 1;
+    updateScoreboard();
+    showPage(gamePage);
+    closeSettings();
+    startRound();
+  }
+
+  function startRound() {
+    cells = Array(9).fill(null);
+    currentPlayer = 'X';
+    roundOver = false;
+    paused = false;
+    pauseOverlay.classList.remove('show');
+    statusEl.textContent = "Player X's turn";
+    celebrateEl.textContent = '';
+    matchInfoEl.textContent = matchLength === 1
+      ? 'Single round'
+      : `Round ${roundNumber} of ${matchLength} (first to ${winsNeeded} wins)`;
+    renderBoard();
+  }
+
+  function renderBoard() {
+    boardEl.innerHTML = '';
+    cells.forEach((val, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'cell' + (val ? ' ' + val.toLowerCase() : '');
+      btn.textContent = val || '';
+      btn.disabled = !!val || roundOver || paused;
+      btn.addEventListener('click', () => handleMove(i));
+      boardEl.appendChild(btn);
+    });
+  }
+
+  function checkWinner() {
+    for (const pattern of winPatterns) {
+      const [a,b,c] = pattern;
+      if (cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) return { winner: cells[a], pattern };
+    }
+    if (cells.every(c => c)) return { winner: 'Draw', pattern: [] };
+    return null;
+  }
+
+  function handleMove(i) {
+    if (cells[i] || roundOver || paused) return;
+    cells[i] = currentPlayer;
+    const result = checkWinner();
+
+    if (result) {
+      roundOver = true;
+      if (result.winner === 'Draw') {
+        statusEl.textContent = "It's a draw!";
+        celebrateEl.textContent = "Good game, evenly matched.";
+        scores.Draw++;
+      } else {
+        statusEl.textContent = `Player ${result.winner} wins this round!`;
+        celebrateEl.textContent = `Nice one, Player ${result.winner}!`;
+        scores[result.winner]++;
+        highlightWin(result.pattern);
+      }
+      updateScoreboard();
+      renderBoard();
+
+      const matchWinner = getMatchWinner();
+      if (matchWinner) {
+        setTimeout(() => goToCongrats(matchWinner), 700);
+      } else if (roundNumber >= matchLength) {
+        let finalResult = 'Draw';
+        if (scores.X > scores.O) finalResult = 'X';
+        else if (scores.O > scores.X) finalResult = 'O';
+        setTimeout(() => goToCongrats(finalResult), 700);
+      } else {
+        setTimeout(() => { roundNumber++; startRound(); }, 900);
+      }
+      return;
+    }
+
+    currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+    statusEl.textContent = `Player ${currentPlayer}'s turn`;
+    renderBoard();
+  }
+
+  function getMatchWinner() {
+    if (scores.X >= winsNeeded) return 'X';
+    if (scores.O >= winsNeeded) return 'O';
+    return null;
+  }
+
+  function highlightWin(pattern) {
+    pattern.forEach(i => {
+      const btn = boardEl.children[i];
+      if (btn) btn.classList.add('win');
+    });
+  }
+
+  function updateScoreboard() {
+    scoreXEl.textContent = `X: ${scores.X}`;
+    scoreOEl.textContent = `O: ${scores.O}`;
+    scoreDrawEl.textContent = `Draws: ${scores.Draw}`;
+  }
+
+  function goToCongrats(matchWinner) {
+    let lines;
+    if (matchWinner === 'Draw') {
+      trophyEl.textContent = '🤝';
+      overlayTitleEl.textContent = "It's a Draw!";
+      overlayCheerEl.textContent = '';
+      lines = [
+        `Rounds played: <b>${roundNumber}</b>`,
+        `Player X wins: <b>${scores.X}</b>`,
+        `Player O wins: <b>${scores.O}</b>`,
+        `Draws: <b>${scores.Draw}</b>`
+      ];
+    } else {
+      trophyEl.textContent = '🏆';
+      overlayTitleEl.textContent = `Congratulations, Player ${matchWinner}!`;
+      overlayCheerEl.textContent = cheers[Math.floor(Math.random() * cheers.length)];
+      lines = [
+        `Rounds played: <b>${roundNumber}</b>`,
+        `Player X wins: <b>${scores.X}</b>`,
+        `Player O wins: <b>${scores.O}</b>`,
+        `Draws: <b>${scores.Draw}</b>`,
+        `Match winner: <b>Player ${matchWinner}</b>`
+      ];
+    }
+
+    resultLinesEl.innerHTML = '';
+    lines.forEach(text => {
+      const div = document.createElement('div');
+      div.className = 'resultLine';
+      div.innerHTML = text;
+      resultLinesEl.appendChild(div);
+    });
+
+    showPage(congratsPage);
+
+    Array.from(resultLinesEl.children).forEach((div, idx) => {
+      setTimeout(() => div.classList.add('show'), 150 + idx * 220);
+    });
+  }
+
+  playAgainBtn.addEventListener('click', () => { startMatch(); });
+  newMatchBtn.addEventListener('click', () => { showPage(roundsPage); refreshLoadRow(); });
+
+  // ---------- Settings panel ----------
+  function openSettings() {
+    settingsPanel.classList.add('show');
+    gearBtn.classList.add('open');
+    settingsToast.textContent = '';
+  }
+  function closeSettings() {
+    settingsPanel.classList.remove('show');
+    gearBtn.classList.remove('open');
+  }
+  gearBtn.addEventListener('click', () => {
+    if (settingsPanel.classList.contains('show')) closeSettings();
+    else openSettings();
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    closeSettings();
+    if (roundOver) return;
+    paused = true;
+    saveMsg.textContent = 'Game paused';
+    pauseOverlay.classList.add('show');
+    renderBoard();
+  });
+
+  resumeBtn.addEventListener('click', () => {
+    paused = false;
+    pauseOverlay.classList.remove('show');
+    renderBoard();
+  });
+
+  pauseExitBtn.addEventListener('click', () => {
+    paused = false;
+    pauseOverlay.classList.remove('show');
+    showPage(roundsPage);
+    refreshLoadRow();
+  });
+
+  restartBtn.addEventListener('click', () => {
+    closeSettings();
+    startMatch();
+  });
+
+  exitBtn.addEventListener('click', () => {
+    closeSettings();
+    pauseOverlay.classList.remove('show');
+    showPage(roundsPage);
+    refreshLoadRow();
+  });
+
+  // ---------- Save / Load ----------
+  async function saveGame() {
+    const state = { cells, currentPlayer, roundOver, scores, matchLength, winsNeeded, roundNumber };
+    try {
+      const result = await window.storage.set(SAVE_KEY, JSON.stringify(state), false);
+      settingsToast.textContent = result ? 'Saved!' : 'Save failed.';
+    } catch (e) {
+      settingsToast.textContent = 'Save failed.';
+    }
+    setTimeout(() => { settingsToast.textContent = ''; }, 1800);
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    await saveGame();
+  });
+
+  async function checkForSave() {
+    try {
+      const result = await window.storage.get(SAVE_KEY, false);
+      loadRow.classList.toggle('show', !!(result && result.value));
+    } catch (e) {
+      loadRow.classList.remove('show');
+    }
+  }
+  function refreshLoadRow() { checkForSave(); }
+
+  loadBtn.addEventListener('click', async () => {
+    try {
+      const result = await window.storage.get(SAVE_KEY, false);
+      if (!result || !result.value) return;
+      const state = JSON.parse(result.value);
+      cells = state.cells;
+      currentPlayer = state.currentPlayer;
+      roundOver = state.roundOver;
+      scores = state.scores;
+      matchLength = state.matchLength;
+      winsNeeded = state.winsNeeded;
+      roundNumber = state.roundNumber;
+      paused = false;
+
+      updateScoreboard();
+      showPage(gamePage);
+      closeSettings();
+      pauseOverlay.classList.remove('show');
+      statusEl.textContent = roundOver ? 'Round over' : `Player ${currentPlayer}'s turn`;
+      celebrateEl.textContent = '';
+      matchInfoEl.textContent = matchLength === 1
+        ? 'Single round'
+        : `Round ${roundNumber} of ${matchLength} (first to ${winsNeeded} wins)`;
+      renderBoard();
+    } catch (e) {}
+  });
+
+  // ---------- Init ----------
+  checkForSave();
+  restoreAccount();
+</script>
+</body>
+</html>
